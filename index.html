@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
     <head>
         <meta charset="utf-8">
         <meta http-equiv="X-UA-Compatible" content="IE=edge">
@@ -12,6 +12,8 @@
         <link rel="stylesheet" href="css/fontawesome-all.min.css">
         <link rel="stylesheet" href="css/leaflet.photon.css">
         <link rel="stylesheet" href="css/leaflet-measure.css">
+        <link rel="stylesheet" href="css/MarkerCluster.css">
+        <link rel="stylesheet" href="css/MarkerCluster.Default.css">
         <style>
         html, body, #map {
             width: 100%;
@@ -19,10 +21,91 @@
             padding: 0;
             margin: 0;
         }
+        :root {
+            --ink: #17352f;
+            --green: #14745d;
+            --green-dark: #0c5443;
+            --paper: rgba(255,255,255,.94);
+        }
+        * { box-sizing: border-box; }
+        body { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+        .map-heading {
+            position: fixed;
+            z-index: 1000;
+            top: 14px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            width: min(620px, calc(100% - 180px));
+            padding: 11px 16px;
+            color: var(--ink);
+            background: var(--paper);
+            border: 1px solid rgba(255,255,255,.75);
+            border-radius: 16px;
+            box-shadow: 0 8px 28px rgba(18, 46, 39, .18);
+            backdrop-filter: blur(12px);
+        }
+        .map-heading__icon {
+            display: grid;
+            place-items: center;
+            flex: 0 0 38px;
+            height: 38px;
+            color: white;
+            background: var(--green);
+            border-radius: 12px;
+            font-size: 18px;
+        }
+        .map-heading h1 { margin: 0; font-size: 16px; line-height: 1.15; font-weight: 750; }
+        .map-heading p { margin: 3px 0 0; color: #60756f; font-size: 12px; }
+        .leaflet-bar, .leaflet-control-layers, .leaflet-control-search {
+            border: 0 !important;
+            border-radius: 12px !important;
+            box-shadow: 0 7px 20px rgba(18, 46, 39, .18) !important;
+            overflow: hidden;
+        }
+        .leaflet-bar a { color: var(--ink); }
+        .leaflet-control-layers-toggle { width: 46px !important; height: 46px !important; }
+        .leaflet-popup-content-wrapper {
+            padding: 0;
+            border-radius: 18px;
+            box-shadow: 0 18px 48px rgba(11, 37, 31, .28);
+            overflow: hidden;
+        }
+        .leaflet-popup-content { margin: 0 !important; width: min(560px, 82vw) !important; }
+        .photo-card { background: #fff; color: var(--ink); }
+        .photo-card img { display: block; width: 100%; max-height: 62vh; object-fit: contain; background: #eef2f0; }
+        .photo-card__body { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 13px 16px 15px; }
+        .photo-card__name { font-size: 14px; font-weight: 700; }
+        .photo-card__date { margin-top: 3px; color: #6d7e79; font-size: 12px; }
+        .photo-card__badge { flex: 0 0 auto; padding: 5px 9px; color: var(--green-dark); background: #e3f4ee; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .leaflet-popup-close-button { top: 8px !important; right: 8px !important; width: 34px !important; height: 34px !important; padding: 4px !important; border-radius: 50%; color: var(--ink) !important; background: rgba(255,255,255,.92) !important; font-size: 26px !important; box-shadow: 0 3px 12px rgba(0,0,0,.16); }
+        .leaflet-popup-tip { box-shadow: 4px 4px 10px rgba(0,0,0,.08); }
+        .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: rgba(20,116,93,.24); }
+        .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { color: #fff; background: var(--green); font-weight: 750; }
+        .leaflet-control-attribution { max-width: 70vw; color: #61736e; background: rgba(255,255,255,.86) !important; }
+        @media (max-width: 700px) {
+            .map-heading { top: 10px; left: 72px; right: 70px; width: auto; transform: none; padding: 9px 11px; border-radius: 13px; }
+            .map-heading__icon { flex-basis: 34px; height: 34px; border-radius: 10px; }
+            .map-heading h1 { font-size: 14px; }
+            .map-heading p { display: none; }
+            .leaflet-top { top: 62px; }
+            .leaflet-popup { position: fixed !important; left: 10px !important; right: 10px !important; bottom: 12px !important; top: auto !important; width: auto !important; margin: 0 !important; transform: none !important; }
+            .leaflet-popup-content-wrapper { border-radius: 18px; }
+            .leaflet-popup-content { width: 100% !important; max-width: none !important; }
+            .leaflet-popup-tip-container { display: none; }
+            .photo-card img { max-height: 52vh; }
+            .photo-card__body { padding: 12px 14px 14px; }
+        }
         </style>
-        <title></title>
+        <title>Registro fotográfico — Icaraí</title>
     </head>
     <body>
+        <header class="map-heading">
+            <span class="map-heading__icon fas fa-camera" aria-hidden="true"></span>
+            <div><h1>Registro fotográfico — Icaraí</h1><p>Toque em um ponto para visualizar a fotografia</p></div>
+        </header>
         <div id="map">
         </div>
         <script src="js/qgis2web_expressions.js"></script>
@@ -37,6 +120,7 @@
         <script src="js/labels.js"></script>
         <script src="js/leaflet.photon.js"></script>
         <script src="js/leaflet-measure.js"></script>
+        <script src="js/leaflet.markercluster.js"></script>
         <script src="data/icarai_1.js"></script>
         <script src="data/fotos_georeferenciadas_2.js"></script>
         <script>
@@ -162,28 +246,7 @@
         });
         layer_GoogleSatellite_0;
         map.addLayer(layer_GoogleSatellite_0);
-        function pop_icarai_1(feature, layer) {
-            layer.on({
-                mouseout: function(e) {
-                    for (var i in e.target._eventParents) {
-                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
-                            e.target._eventParents[i].resetStyle(e.target);
-                        }
-                    }
-                },
-                mouseover: highlightFeature,
-            });
-            var popupContent = '<table>\
-                    <tr>\
-                        <td colspan="2">' + (feature.properties['id'] !== null ? autolinker.link(String(feature.properties['id']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                </table>';
-            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
-			layer.on('popupopen', function(e) {
-				addClassToPopupIfMedia(content, e.popup);
-			});
-			layer.bindPopup(content, { maxHeight: 400 });
-        }
+        function pop_icarai_1(feature, layer) {}
 
         function style_icarai_1_0() {
             return {
@@ -195,7 +258,7 @@
                 lineJoin: 'bevel',
                 weight: 4.0,
                 fillOpacity: 0,
-                interactive: true,
+                interactive: false,
             }
         }
         map.createPane('pane_icarai_1');
@@ -203,7 +266,7 @@
         map.getPane('pane_icarai_1').style['mix-blend-mode'] = 'normal';
         var layer_icarai_1 = new L.geoJson(json_icarai_1, {
             attribution: '',
-            interactive: true,
+            interactive: false,
             dataVar: 'json_icarai_1',
             layerName: 'layer_icarai_1',
             pane: 'pane_icarai_1',
@@ -213,49 +276,33 @@
         bounds_group.addLayer(layer_icarai_1);
         map.addLayer(layer_icarai_1);
         function pop_fotos_georeferenciadas_2(feature, layer) {
-            layer.on({
-                mouseout: function(e) {
-                    for (var i in e.target._eventParents) {
-                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
-                            e.target._eventParents[i].resetStyle(e.target);
-                        }
-                    }
-                },
-                mouseover: highlightFeature,
-            });
-            var popupContent = '<table>\
-                    <tr>\
-                        <td colspan="2">' + (feature.properties['photo'] !== null ? '<img src="images/' + String(feature.properties['photo']).replace(/[\\/:]/g, '_').trim().replace(/'/g, '\'').replace(/"/g, '&quot;') + '">' : '') + '</td>\
-                    </tr>\
-                    <tr>\
-                        <th scope="row">filename</th>\
-                        <td>' + (feature.properties['filename'] !== null ? autolinker.link(String(feature.properties['filename']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                    <tr>\
-                        <th scope="row">timestamp</th>\
-                        <td>' + (feature.properties['timestamp'] !== null ? autolinker.link(String(feature.properties['timestamp']).replace(/'/g, '\'').toLocaleString()) : '') + '</td>\
-                    </tr>\
-                </table>';
+            var rawDate = feature.properties['timestamp'];
+            var formattedDate = rawDate ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(rawDate)) : 'Data não informada';
+            var photoSrc = 'images/' + String(feature.properties['photo']).replace(/[\\/:]/g, '_').trim().replace(/'/g, '\'').replace(/"/g, '&quot;');
+            var popupContent = '<article class="photo-card">' +
+                '<img src="' + photoSrc + '" alt="Fotografia ' + feature.properties['filename'] + '">' +
+                '<div class="photo-card__body"><div><div class="photo-card__name">Fotografia ' + feature.properties['filename'] + '</div>' +
+                '<div class="photo-card__date">' + formattedDate + '</div></div><span class="photo-card__badge">Registro de campo</span></div></article>';
             var content = removeEmptyRowsFromPopupContent(popupContent, feature);
 			layer.on('popupopen', function(e) {
 				addClassToPopupIfMedia(content, e.popup);
 			});
-			layer.bindPopup(content, { maxHeight: 400 });
+			layer.bindPopup(content, { maxHeight: 700, maxWidth: 600, autoPanPadding: [24, 100] });
         }
 
         function style_fotos_georeferenciadas_2_0() {
             return {
                 pane: 'pane_fotos_georeferenciadas_2',
-                radius: 4.0,
+                radius: window.innerWidth <= 700 ? 10.0 : 7.0,
                 opacity: 1,
-                color: 'rgba(35,35,35,1.0)',
+                color: 'rgba(255,255,255,1.0)',
                 dashArray: '',
                 lineCap: 'butt',
                 lineJoin: 'miter',
-                weight: 1,
+                weight: 2,
                 fill: true,
                 fillOpacity: 1,
-                fillColor: 'rgba(196,60,57,1.0)',
+                fillColor: 'rgba(20,116,93,1.0)',
                 interactive: true,
             }
         }
@@ -278,7 +325,15 @@
             },
         });
         bounds_group.addLayer(layer_fotos_georeferenciadas_2);
-        map.addLayer(layer_fotos_georeferenciadas_2);
+        var photoClusters = L.markerClusterGroup({
+            maxClusterRadius: 32,
+            disableClusteringAtZoom: 19,
+            spiderfyOnMaxZoom: true,
+            showCoverageOnHover: false,
+            zoomToBoundsOnClick: true
+        });
+        photoClusters.addLayer(layer_fotos_georeferenciadas_2);
+        map.addLayer(photoClusters);
         const url = {"Nominatim OSM": "https://nominatim.openstreetmap.org/search?format=geojson&addressdetails=1&",
         "France BAN": "https://api-adresse.data.gouv.fr/search/?"}
         var photonControl = L.control.photon({
@@ -333,9 +388,9 @@
             }
         });
         var overlaysTree = [
-            {label: '<img src="legend/fotos_georeferenciadas_2.png" /> fotos_georeferenciadas', layer: layer_fotos_georeferenciadas_2},
-            {label: '<img src="legend/icarai_1.png" /> icarai', layer: layer_icarai_1},
-            {label: "Google Satellite", layer: layer_GoogleSatellite_0},]
+            {label: '<span class="fas fa-camera"></span> Fotografias (81)', layer: photoClusters},
+            {label: '<span class="fas fa-draw-polygon"></span> Limite do Icaraí', layer: layer_icarai_1},
+            {label: "Imagem de satélite", layer: layer_GoogleSatellite_0},]
         var lay = L.control.layers.tree(null, overlaysTree,{
             //namedToggle: true,
             //selectorBack: false,
