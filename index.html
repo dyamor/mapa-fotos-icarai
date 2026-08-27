@@ -87,9 +87,10 @@
         .mobile-photo-sheet {
             position: fixed;
             z-index: 2500;
-            left: 10px;
-            right: 10px;
+            left: 50%;
+            width: min(620px, calc(100% - 20px));
             bottom: calc(10px + env(safe-area-inset-bottom));
+            transform: translateX(-50%);
             display: none;
             max-height: calc(100dvh - 86px);
             color: var(--ink);
@@ -129,6 +130,29 @@
         .mobile-photo-sheet__body { padding: 12px 14px 14px; }
         .mobile-photo-sheet__name { padding-right: 46px; font-size: 14px; font-weight: 750; }
         .mobile-photo-sheet__date { margin-top: 4px; color: #6d7e79; font-size: 12px; }
+        .mobile-photo-sheet__footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-top: 12px;
+        }
+        .mobile-photo-sheet__count { color: var(--green-dark); font-size: 12px; font-weight: 750; }
+        .mobile-photo-sheet__nav { display: flex; gap: 8px; }
+        .mobile-photo-sheet__nav button {
+            min-width: 48px;
+            height: 42px;
+            padding: 0 14px;
+            color: #fff;
+            background: var(--green);
+            border: 0;
+            border-radius: 12px;
+            font-size: 20px;
+            font-weight: 750;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .mobile-photo-sheet__nav button:disabled { opacity: .38; cursor: default; }
         .leaflet-control-attribution { max-width: 70vw; color: #61736e; background: rgba(255,255,255,.86) !important; }
         @media (max-width: 700px) {
             .map-heading { top: 10px; left: 72px; right: 70px; width: auto; transform: none; padding: 9px 11px; border-radius: 13px; }
@@ -154,6 +178,13 @@
             <div class="mobile-photo-sheet__body">
                 <div id="mobilePhotoName" class="mobile-photo-sheet__name"></div>
                 <div id="mobilePhotoDate" class="mobile-photo-sheet__date"></div>
+                <div class="mobile-photo-sheet__footer">
+                    <span id="mobilePhotoCount" class="mobile-photo-sheet__count"></span>
+                    <div id="mobilePhotoNav" class="mobile-photo-sheet__nav">
+                        <button id="mobilePhotoPrev" type="button" aria-label="Fotografia anterior">&#8249;</button>
+                        <button id="mobilePhotoNext" type="button" aria-label="Próxima fotografia">&#8250;</button>
+                    </div>
+                </div>
             </div>
         </section>
         <script src="js/qgis2web_expressions.js"></script>
@@ -283,7 +314,13 @@
         var mobilePhotoImage = document.getElementById('mobilePhotoImage');
         var mobilePhotoName = document.getElementById('mobilePhotoName');
         var mobilePhotoDate = document.getElementById('mobilePhotoDate');
+        var mobilePhotoCount = document.getElementById('mobilePhotoCount');
+        var mobilePhotoNav = document.getElementById('mobilePhotoNav');
+        var mobilePhotoPrev = document.getElementById('mobilePhotoPrev');
+        var mobilePhotoNext = document.getElementById('mobilePhotoNext');
         var mobilePhotoClose = document.getElementById('mobilePhotoClose');
+        var mobilePhotoFeatures = [];
+        var mobilePhotoIndex = 0;
         function isMobileLayout() {
             return window.matchMedia('(max-width: 700px)').matches || window.matchMedia('(pointer: coarse)').matches;
         }
@@ -301,19 +338,50 @@
         function photoPath(feature) {
             return 'images/' + String(feature.properties['photo']).replace(/[\\/:]/g, '_').trim();
         }
-        function openMobilePhoto(feature) {
+        function renderMobilePhoto() {
+            var feature = mobilePhotoFeatures[mobilePhotoIndex];
+            if (!feature) return;
             mobilePhotoImage.src = photoPath(feature);
             mobilePhotoImage.alt = 'Fotografia ' + String(feature.properties['filename'] || '');
             mobilePhotoName.textContent = 'Fotografia ' + String(feature.properties['filename'] || '');
             mobilePhotoDate.textContent = formatPhotoDate(feature.properties['timestamp']);
+            mobilePhotoCount.textContent = mobilePhotoFeatures.length > 1
+                ? 'Fotografia ' + (mobilePhotoIndex + 1) + ' de ' + mobilePhotoFeatures.length
+                : '1 fotografia neste ponto';
+            mobilePhotoNav.style.display = mobilePhotoFeatures.length > 1 ? 'flex' : 'none';
+            mobilePhotoPrev.disabled = mobilePhotoIndex === 0;
+            mobilePhotoNext.disabled = mobilePhotoIndex === mobilePhotoFeatures.length - 1;
+        }
+        function openMobileGallery(features, startIndex) {
+            mobilePhotoFeatures = features.filter(Boolean);
+            mobilePhotoIndex = Math.max(0, Math.min(startIndex || 0, mobilePhotoFeatures.length - 1));
+            if (!mobilePhotoFeatures.length) return;
+            renderMobilePhoto();
             mobilePhotoSheet.classList.add('is-open');
             mobilePhotoSheet.setAttribute('aria-hidden', 'false');
+        }
+        function openMobilePhoto(feature) {
+            openMobileGallery([feature], 0);
         }
         function closeMobilePhoto() {
             mobilePhotoSheet.classList.remove('is-open');
             mobilePhotoSheet.setAttribute('aria-hidden', 'true');
             mobilePhotoImage.removeAttribute('src');
+            mobilePhotoFeatures = [];
+            mobilePhotoIndex = 0;
         }
+        mobilePhotoPrev.addEventListener('click', function () {
+            if (mobilePhotoIndex > 0) {
+                mobilePhotoIndex -= 1;
+                renderMobilePhoto();
+            }
+        });
+        mobilePhotoNext.addEventListener('click', function () {
+            if (mobilePhotoIndex < mobilePhotoFeatures.length - 1) {
+                mobilePhotoIndex += 1;
+                renderMobilePhoto();
+            }
+        });
         mobilePhotoClose.addEventListener('click', closeMobilePhoto);
         document.addEventListener('keydown', function (event) {
             if (event.key === 'Escape') closeMobilePhoto();
@@ -421,11 +489,17 @@
         var photoClusters = L.markerClusterGroup({
             maxClusterRadius: 32,
             disableClusteringAtZoom: 19,
-            spiderfyOnMaxZoom: true,
+            spiderfyOnMaxZoom: false,
             showCoverageOnHover: false,
-            zoomToBoundsOnClick: true
+            zoomToBoundsOnClick: false
         });
         photoClusters.addLayer(layer_fotos_georeferenciadas_2);
+        photoClusters.on('clusterclick', function (event) {
+            var features = event.layer.getAllChildMarkers().map(function (marker) {
+                return marker.feature;
+            }).filter(Boolean);
+            openMobileGallery(features, 0);
+        });
         map.addLayer(photoClusters);
         const url = {"Nominatim OSM": "https://nominatim.openstreetmap.org/search?format=geojson&addressdetails=1&",
         "France BAN": "https://api-adresse.data.gouv.fr/search/?"}
