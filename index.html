@@ -84,6 +84,51 @@
         .leaflet-popup-tip { box-shadow: 4px 4px 10px rgba(0,0,0,.08); }
         .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: rgba(20,116,93,.24); }
         .marker-cluster-small div, .marker-cluster-medium div, .marker-cluster-large div { color: #fff; background: var(--green); font-weight: 750; }
+        .mobile-photo-sheet {
+            position: fixed;
+            z-index: 2500;
+            left: 10px;
+            right: 10px;
+            bottom: calc(10px + env(safe-area-inset-bottom));
+            display: none;
+            max-height: calc(100dvh - 86px);
+            color: var(--ink);
+            background: #fff;
+            border-radius: 18px;
+            box-shadow: 0 18px 48px rgba(11, 37, 31, .34);
+            overflow: hidden;
+        }
+        .mobile-photo-sheet.is-open { display: block; }
+        .mobile-photo-sheet__close {
+            position: absolute;
+            z-index: 2;
+            top: 8px;
+            right: 8px;
+            display: grid;
+            place-items: center;
+            width: 40px;
+            height: 40px;
+            padding: 0;
+            color: var(--ink);
+            background: rgba(255,255,255,.95);
+            border: 0;
+            border-radius: 50%;
+            box-shadow: 0 3px 12px rgba(0,0,0,.18);
+            font-size: 28px;
+            line-height: 1;
+            cursor: pointer;
+            touch-action: manipulation;
+        }
+        .mobile-photo-sheet__image {
+            display: block;
+            width: 100%;
+            max-height: calc(100dvh - 190px);
+            object-fit: contain;
+            background: #eef2f0;
+        }
+        .mobile-photo-sheet__body { padding: 12px 14px 14px; }
+        .mobile-photo-sheet__name { padding-right: 46px; font-size: 14px; font-weight: 750; }
+        .mobile-photo-sheet__date { margin-top: 4px; color: #6d7e79; font-size: 12px; }
         .leaflet-control-attribution { max-width: 70vw; color: #61736e; background: rgba(255,255,255,.86) !important; }
         @media (max-width: 700px) {
             .map-heading { top: 10px; left: 72px; right: 70px; width: auto; transform: none; padding: 9px 11px; border-radius: 13px; }
@@ -91,12 +136,7 @@
             .map-heading h1 { font-size: 14px; }
             .map-heading p { display: none; }
             .leaflet-top { top: 62px; }
-            .leaflet-popup { position: fixed !important; left: 10px !important; right: 10px !important; bottom: 12px !important; top: auto !important; width: auto !important; margin: 0 !important; transform: none !important; }
-            .leaflet-popup-content-wrapper { border-radius: 18px; }
-            .leaflet-popup-content { width: 100% !important; max-width: none !important; }
-            .leaflet-popup-tip-container { display: none; }
-            .photo-card img { max-height: 52vh; }
-            .photo-card__body { padding: 12px 14px 14px; }
+            .leaflet-popup { display: none !important; }
         }
         </style>
         <title>Registro fotográfico — Icaraí</title>
@@ -108,6 +148,14 @@
         </header>
         <div id="map">
         </div>
+        <section id="mobilePhotoSheet" class="mobile-photo-sheet" role="dialog" aria-modal="true" aria-label="Fotografia do registro" aria-hidden="true">
+            <button id="mobilePhotoClose" class="mobile-photo-sheet__close" type="button" aria-label="Fechar fotografia">&times;</button>
+            <img id="mobilePhotoImage" class="mobile-photo-sheet__image" alt="Fotografia do registro de campo">
+            <div class="mobile-photo-sheet__body">
+                <div id="mobilePhotoName" class="mobile-photo-sheet__name"></div>
+                <div id="mobilePhotoDate" class="mobile-photo-sheet__date"></div>
+            </div>
+        </section>
         <script src="js/qgis2web_expressions.js"></script>
         <script src="js/leaflet.js"></script>
         <script src="js/L.Control.Layers.Tree.min.js"></script>
@@ -231,6 +279,45 @@
         document.getElementsByClassName('leaflet-control-measure-toggle')[0].innerHTML = '';
         document.getElementsByClassName('leaflet-control-measure-toggle')[0].className += ' fas fa-ruler';
         var bounds_group = new L.featureGroup([]);
+        var mobilePhotoSheet = document.getElementById('mobilePhotoSheet');
+        var mobilePhotoImage = document.getElementById('mobilePhotoImage');
+        var mobilePhotoName = document.getElementById('mobilePhotoName');
+        var mobilePhotoDate = document.getElementById('mobilePhotoDate');
+        var mobilePhotoClose = document.getElementById('mobilePhotoClose');
+        function isMobileLayout() {
+            return window.matchMedia('(max-width: 700px)').matches || window.matchMedia('(pointer: coarse)').matches;
+        }
+        function formatPhotoDate(rawDate) {
+            if (!rawDate) return 'Data não informada';
+            try {
+                return new Intl.DateTimeFormat('pt-BR', {
+                    day: '2-digit', month: '2-digit', year: 'numeric',
+                    hour: '2-digit', minute: '2-digit'
+                }).format(new Date(rawDate));
+            } catch (error) {
+                return String(rawDate);
+            }
+        }
+        function photoPath(feature) {
+            return 'images/' + String(feature.properties['photo']).replace(/[\\/:]/g, '_').trim();
+        }
+        function openMobilePhoto(feature) {
+            mobilePhotoImage.src = photoPath(feature);
+            mobilePhotoImage.alt = 'Fotografia ' + String(feature.properties['filename'] || '');
+            mobilePhotoName.textContent = 'Fotografia ' + String(feature.properties['filename'] || '');
+            mobilePhotoDate.textContent = formatPhotoDate(feature.properties['timestamp']);
+            mobilePhotoSheet.classList.add('is-open');
+            mobilePhotoSheet.setAttribute('aria-hidden', 'false');
+        }
+        function closeMobilePhoto() {
+            mobilePhotoSheet.classList.remove('is-open');
+            mobilePhotoSheet.setAttribute('aria-hidden', 'true');
+            mobilePhotoImage.removeAttribute('src');
+        }
+        mobilePhotoClose.addEventListener('click', closeMobilePhoto);
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') closeMobilePhoto();
+        });
         function setBounds() {
         }
         map.createPane('pane_GoogleSatellite_0');
@@ -277,8 +364,8 @@
         map.addLayer(layer_icarai_1);
         function pop_fotos_georeferenciadas_2(feature, layer) {
             var rawDate = feature.properties['timestamp'];
-            var formattedDate = rawDate ? new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long', timeStyle: 'short' }).format(new Date(rawDate)) : 'Data não informada';
-            var photoSrc = 'images/' + String(feature.properties['photo']).replace(/[\\/:]/g, '_').trim().replace(/'/g, '\'').replace(/"/g, '&quot;');
+            var formattedDate = formatPhotoDate(rawDate);
+            var photoSrc = photoPath(feature).replace(/'/g, '\'').replace(/"/g, '&quot;');
             var popupContent = '<article class="photo-card">' +
                 '<img src="' + photoSrc + '" alt="Fotografia ' + feature.properties['filename'] + '">' +
                 '<div class="photo-card__body"><div><div class="photo-card__name">Fotografia ' + feature.properties['filename'] + '</div>' +
@@ -288,6 +375,12 @@
 				addClassToPopupIfMedia(content, e.popup);
 			});
 			layer.bindPopup(content, { maxHeight: 700, maxWidth: 600, autoPanPadding: [24, 100] });
+            layer.on('click', function () {
+                if (isMobileLayout()) {
+                    layer.closePopup();
+                    openMobilePhoto(feature);
+                }
+            });
         }
 
         function style_fotos_georeferenciadas_2_0() {
